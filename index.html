@@ -1,0 +1,625 @@
+```react
+import React, { useState, useEffect } from 'react';
+import { 
+  Trophy, Calendar, MapPin, ChevronRight, Activity, 
+  Clock, CheckCircle2, CalendarPlus, Users, UserPlus, 
+  Trash2, PlusCircle, Shield, LogIn, LogOut, Phone, KeyRound, X
+} from 'lucide-react';
+
+// --- Helper Functions ---
+const generateShortName = (name) => {
+  if (!name) return 'UNK';
+  const words = name.trim().split(' ');
+  if (words.length === 1) return name.substring(0, 3).toUpperCase();
+  return words.map(word => word[0]).join('').substring(0, 3).toUpperCase();
+};
+
+const colors = ['bg-blue-600', 'bg-red-600', 'bg-green-600', 'bg-yellow-500', 'bg-purple-600', 'bg-pink-600', 'bg-indigo-600', 'bg-teal-600'];
+const getRandomColor = () => colors[Math.floor(Math.random() * colors.length)];
+
+// --- Initial Dummy Data ---
+const INITIAL_TEAMS = [
+  { id: 't1', name: 'Sevak Strikers', shortName: 'SS', color: 'bg-blue-600' },
+  { id: 't2', name: 'Gokuldham Giants', shortName: 'GG', color: 'bg-orange-500' },
+  { id: 't3', name: 'Surat Super Kings', shortName: 'SSK', color: 'bg-yellow-500' },
+];
+
+const INITIAL_PLAYERS = [
+  { id: 'p1', name: 'Rahul Patel', role: 'Batsman', teamId: 't1' },
+  { id: 'p2', name: 'Amit Shah', role: 'Bowler', teamId: 't2' },
+  { id: 'p3', name: 'Hardik Desai', role: 'All-rounder', teamId: 't1' },
+];
+
+const INITIAL_MATCHES = [
+  {
+    id: 'm1',
+    matchNo: 'Match 1',
+    team1Id: 't1',
+    team2Id: 't2',
+    date: '2026-11-10',
+    time: '10:00',
+    venue: 'Sevak Samaj Ground, Surat',
+    status: 'upcoming',
+    isLive: false,
+    team1Score: '',
+    team2Score: '',
+    result: 'Match Scheduled'
+  }
+];
+
+// --- Views Components ---
+
+const MatchesView = ({ matches, teams, onRemoveMatch, isAuthenticated }) => {
+  const [activeSubTab, setActiveSubTab] = useState('upcoming');
+  const filteredMatches = matches.filter(m => m.status === activeSubTab);
+
+  const getTeam = (id) => teams.find(t => t.id === id) || { name: 'Unknown', shortName: 'UNK', color: 'bg-gray-400' };
+
+  return (
+    <div className="flex flex-col h-full bg-gray-100">
+      {/* Sub Tabs */}
+      <div className="flex bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+        {[
+          { id: 'live', label: 'Live', icon: Activity },
+          { id: 'upcoming', label: 'Upcoming', icon: Clock },
+          { id: 'completed', label: 'Completed', icon: CheckCircle2 }
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeSubTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveSubTab(tab.id)}
+              className={`flex-1 py-3 flex items-center justify-center space-x-2 text-sm font-medium transition-colors border-b-2 ${
+                isActive ? 'border-green-600 text-green-700' : 'border-transparent text-gray-500 hover:text-green-600'
+              }`}
+            >
+              <Icon size={16} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="p-4 overflow-y-auto flex-1 pb-24">
+        {filteredMatches.length > 0 ? (
+          filteredMatches.map(match => {
+            const t1 = getTeam(match.team1Id);
+            const t2 = getTeam(match.team2Id);
+            return (
+              <div key={match.id} className="bg-white rounded-xl shadow-sm border border-gray-200 mb-4 overflow-hidden relative group">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center text-xs text-gray-500">
+                  <span className="font-medium text-gray-700">{match.matchNo}</span>
+                  <span className="flex items-center"><Calendar size={12} className="mr-1" /> {match.date} | {match.time}</span>
+                </div>
+                
+                <div className="p-4">
+                  {/* Team 1 */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-inner ${t1.color}`}>
+                        {t1.shortName}
+                      </div>
+                      <span className="font-semibold text-gray-800">{t1.name}</span>
+                    </div>
+                    {match.status !== 'upcoming' && (
+                      <div className="font-bold text-gray-900">{match.team1Score || '0/0'}</div>
+                    )}
+                  </div>
+                  {/* Team 2 */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-inner ${t2.color}`}>
+                        {t2.shortName}
+                      </div>
+                      <span className="font-semibold text-gray-800">{t2.name}</span>
+                    </div>
+                    {match.status !== 'upcoming' && (
+                      <div className="font-bold text-gray-900">{match.team2Score || '0/0'}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="px-4 py-3 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
+                  <div className="text-xs md:text-sm font-medium text-blue-700 flex-1 pr-2 flex items-center">
+                    {match.isLive && <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></span>}
+                    {match.result}
+                  </div>
+                  {isAuthenticated && (
+                    <button 
+                      onClick={() => onRemoveMatch(match.id)}
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Remove Match"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+            <Trophy size={48} className="mb-4 opacity-20" />
+            <p className="text-lg font-medium text-gray-500">No {activeSubTab} matches.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const TeamsView = ({ teams, setTeams, players, setPlayers, matches, setMatches }) => {
+  const [teamName, setTeamName] = useState('');
+  const [error, setError] = useState('');
+
+  const handleAddTeam = (e) => {
+    e.preventDefault();
+    setError('');
+    if (!teamName.trim()) {
+      setError('Team name is required.');
+      return;
+    }
+    const newTeam = {
+      id: Date.now().toString(),
+      name: teamName.trim(),
+      shortName: generateShortName(teamName.trim()),
+      color: getRandomColor(),
+    };
+    setTeams([...teams, newTeam]);
+    setTeamName('');
+  };
+
+  const handleRemoveTeam = (id) => {
+    // Basic cleanup: remove players of this team
+    setPlayers(players.filter(p => p.teamId !== id));
+    // Remove matches involving this team
+    setMatches(matches.filter(m => m.team1Id !== id && m.team2Id !== id));
+    // Remove team
+    setTeams(teams.filter(t => t.id !== id));
+  };
+
+  return (
+    <div className="p-4 pb-24 h-full overflow-y-auto bg-gray-50">
+      <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Shield className="mr-2 text-green-700" size={20}/> Manage Teams</h2>
+
+      <form onSubmit={handleAddTeam} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
+        {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
+        <div className="flex space-x-2">
+          <input 
+            type="text" 
+            value={teamName} 
+            onChange={(e) => setTeamName(e.target.value)} 
+            placeholder="Enter Team Name"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none" 
+          />
+          <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 flex items-center">
+            <PlusCircle size={18} className="mr-1" /> Add
+          </button>
+        </div>
+      </form>
+
+      <div className="space-y-3">
+        {teams.length === 0 ? (
+          <p className="text-center text-gray-500 py-4">No teams added yet.</p>
+        ) : (
+          teams.map(team => (
+            <div key={team.id} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${team.color}`}>
+                  {team.shortName}
+                </div>
+                <span className="font-semibold text-gray-800">{team.name}</span>
+              </div>
+              <button onClick={() => handleRemoveTeam(team.id)} className="text-red-500 p-2 hover:bg-red-50 rounded-full transition">
+                <Trash2 size={18} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+const PlayersView = ({ players, setPlayers, teams }) => {
+  const [playerName, setPlayerName] = useState('');
+  const [role, setRole] = useState('Batsman');
+  const [teamId, setTeamId] = useState('');
+  const [error, setError] = useState('');
+
+  const handleAddPlayer = (e) => {
+    e.preventDefault();
+    setError('');
+    if (!playerName.trim() || !teamId) {
+      setError('Player name and Team are required.');
+      return;
+    }
+    const newPlayer = {
+      id: Date.now().toString(),
+      name: playerName.trim(),
+      role,
+      teamId
+    };
+    setPlayers([...players, newPlayer]);
+    setPlayerName('');
+  };
+
+  const handleRemovePlayer = (id) => {
+    setPlayers(players.filter(p => p.id !== id));
+  };
+
+  return (
+    <div className="p-4 pb-24 h-full overflow-y-auto bg-gray-50">
+      <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><Users className="mr-2 text-green-700" size={20}/> Manage Players</h2>
+
+      <form onSubmit={handleAddPlayer} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 space-y-3">
+        {error && <div className="text-red-500 text-sm">{error}</div>}
+        
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Player Name</label>
+          <input 
+            type="text" 
+            value={playerName} 
+            onChange={(e) => setPlayerName(e.target.value)} 
+            placeholder="Enter Player Name"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none" 
+          />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Role</label>
+            <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none">
+              <option value="Batsman">Batsman</option>
+              <option value="Bowler">Bowler</option>
+              <option value="All-rounder">All-rounder</option>
+              <option value="Wicketkeeper">Wicketkeeper</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Team</label>
+            <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none">
+              <option value="">Select Team</option>
+              {teams.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" className="w-full bg-green-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-green-700 flex items-center justify-center mt-2">
+          <UserPlus size={18} className="mr-2" /> Add Player
+        </button>
+      </form>
+
+      <div className="space-y-3">
+        {players.length === 0 ? (
+          <p className="text-center text-gray-500 py-4">No players added yet.</p>
+        ) : (
+          players.map(player => {
+            const team = teams.find(t => t.id === player.teamId);
+            return (
+              <div key={player.id} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-gray-800">{player.name}</div>
+                  <div className="text-xs text-gray-500 flex items-center space-x-2 mt-0.5">
+                    <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{player.role}</span>
+                    {team && <span className="flex items-center"><Shield size={10} className="mr-1"/> {team.shortName}</span>}
+                  </div>
+                </div>
+                <button onClick={() => handleRemovePlayer(player.id)} className="text-red-500 p-2 hover:bg-red-50 rounded-full transition">
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ScheduleView = ({ matches, setMatches, teams }) => {
+  const [team1Id, setTeam1Id] = useState('');
+  const [team2Id, setTeam2Id] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [venue, setVenue] = useState('Sevak Samaj Ground, Surat');
+  const [error, setError] = useState('');
+
+  const handleSchedule = (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!team1Id || !team2Id || !date || !time || !venue) {
+      setError('All fields are required.');
+      return;
+    }
+    if (team1Id === team2Id) {
+      setError('A team cannot play against itself.');
+      return;
+    }
+
+    const newMatch = {
+      id: Date.now().toString(),
+      matchNo: `Match ${matches.length + 1}`,
+      team1Id,
+      team2Id,
+      date,
+      time,
+      venue,
+      status: 'upcoming',
+      isLive: false,
+      team1Score: '',
+      team2Score: '',
+      result: `Match scheduled on ${date}`
+    };
+
+    setMatches([...matches, newMatch]);
+    setTeam1Id('');
+    setTeam2Id('');
+    setDate('');
+    setTime('');
+    // Switch to matches tab logically handled outside if needed, but keeping it simple here
+  };
+
+  return (
+    <div className="p-4 pb-24 h-full overflow-y-auto bg-gray-50">
+      <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center"><CalendarPlus className="mr-2 text-green-700" size={20}/> Schedule Match</h2>
+
+      {teams.length < 2 ? (
+        <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 text-yellow-800 text-sm text-center">
+          Please add at least 2 teams in the Teams tab to schedule a match.
+        </div>
+      ) : (
+        <form onSubmit={handleSchedule} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-4">
+          {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-200">{error}</div>}
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Team A</label>
+              <select value={team1Id} onChange={(e) => setTeam1Id(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none">
+                <option value="">Select Team</option>
+                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Team B</label>
+              <select value={team2Id} onChange={(e) => setTeam2Id(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none">
+                <option value="">Select Team</option>
+                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Venue</label>
+            <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 focus-within:ring-2 focus-within:ring-green-500">
+              <MapPin size={16} className="text-gray-400 mr-2" />
+              <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} className="w-full bg-transparent outline-none" placeholder="Ground Name" />
+            </div>
+          </div>
+
+          <button type="submit" className="w-full bg-green-600 text-white px-4 py-3 rounded-lg font-bold hover:bg-green-700 flex items-center justify-center mt-4">
+            <CalendarPlus size={18} className="mr-2" /> Add to Schedule
+          </button>
+        </form>
+      )}
+    </div>
+  );
+};
+
+// --- Main App Component ---
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('matches');
+  
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginStep, setLoginStep] = useState('phone');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [loginError, setLoginError] = useState('');
+  
+  // App State - Note: In a real app, you'd sync this to LocalStorage or a backend. 
+  // We use standard useState here to ensure perfect functionality within the preview sandbox.
+  const [teams, setTeams] = useState(INITIAL_TEAMS);
+  const [players, setPlayers] = useState(INITIAL_PLAYERS);
+  const [matches, setMatches] = useState(INITIAL_MATCHES);
+
+  const handleRemoveMatch = (matchId) => {
+    setMatches(matches.filter(m => m.id !== matchId));
+  };
+
+  // --- Auth Logic ---
+  const handleSendOtp = (e) => {
+    e.preventDefault();
+    setLoginError('');
+    if (phone.length === 10 && /^\d+$/.test(phone)) {
+      setLoginStep('otp');
+    } else {
+      setLoginError('Please enter a valid 10-digit mobile number.');
+    }
+  };
+
+  const handleVerifyOtp = (e) => {
+    e.preventDefault();
+    setLoginError('');
+    if (otp === '1234') {
+      setIsAuthenticated(true);
+      setShowLogin(false);
+      setPhone('');
+      setOtp('');
+      setLoginStep('phone');
+    } else {
+      setLoginError('Invalid OTP. Use 1234 for demo.');
+    }
+  };
+
+  const closeLogin = () => {
+    setShowLogin(false);
+    setLoginStep('phone');
+    setPhone('');
+    setOtp('');
+    setLoginError('');
+  };
+
+  // Ensure a non-admin tab is selected if logged out while on an admin tab
+  useEffect(() => {
+    if (!isAuthenticated && activeTab !== 'matches') {
+      setActiveTab('matches');
+    }
+  }, [isAuthenticated, activeTab]);
+
+  const tabs = isAuthenticated
+    ? [
+        { id: 'matches', label: 'Matches', icon: Trophy },
+        { id: 'teams', label: 'Teams', icon: Shield },
+        { id: 'players', label: 'Players', icon: Users },
+        { id: 'schedule', label: 'Schedule', icon: CalendarPlus }
+      ]
+    : [
+        { id: 'matches', label: 'Matches', icon: Trophy }
+      ];
+
+  return (
+    <div className="min-h-screen bg-gray-200 font-sans flex justify-center">
+      {/* Mobile App Container */}
+      <div className="w-full max-w-lg bg-gray-100 min-h-screen flex flex-col relative shadow-2xl overflow-hidden">
+        
+        {/* Header */}
+        <header className="bg-green-700 text-white shadow-md sticky top-0 z-20">
+          <div className="px-4 py-4 flex items-center justify-center relative">
+            <Trophy className="absolute left-4 opacity-80" size={24} />
+            <h1 className="text-lg md:text-xl font-bold tracking-wide text-center leading-tight">
+              15th Sevak Samaj<br/><span className="text-xs font-medium text-green-200 block mt-0.5 uppercase tracking-wider">Tournament {isAuthenticated ? 'Admin' : 'Live'}</span>
+            </h1>
+            <button 
+              onClick={() => isAuthenticated ? setIsAuthenticated(false) : setShowLogin(true)}
+              className="absolute right-4 p-2 bg-green-800 rounded-full hover:bg-green-600 transition"
+              title={isAuthenticated ? 'Logout' : 'Admin Login'}
+            >
+              {isAuthenticated ? <LogOut size={18} /> : <LogIn size={18} />}
+            </button>
+          </div>
+        </header>
+
+        {/* Dynamic Content Area */}
+        <main className="flex-1 overflow-hidden relative">
+          {activeTab === 'matches' && <MatchesView matches={matches} teams={teams} onRemoveMatch={handleRemoveMatch} isAuthenticated={isAuthenticated} />}
+          {isAuthenticated && activeTab === 'teams' && <TeamsView teams={teams} setTeams={setTeams} players={players} setPlayers={setPlayers} matches={matches} setMatches={setMatches} />}
+          {isAuthenticated && activeTab === 'players' && <PlayersView players={players} setPlayers={setPlayers} teams={teams} />}
+          {isAuthenticated && activeTab === 'schedule' && <ScheduleView matches={matches} setMatches={setMatches} teams={teams} />}
+        </main>
+
+        {/* Bottom Navigation */}
+        <footer className="bg-white border-t border-gray-200 absolute bottom-0 w-full z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+           <div className="flex justify-around items-center px-1">
+             {tabs.map(tab => {
+               const Icon = tab.icon;
+               const isActive = activeTab === tab.id;
+               return (
+                 <button 
+                   key={tab.id}
+                   onClick={() => setActiveTab(tab.id)}
+                   className={`flex-1 flex flex-col items-center py-3 relative transition-colors ${
+                     isActive ? 'text-green-700' : 'text-gray-400 hover:text-green-600'
+                   }`}
+                 >
+                   <Icon size={20} className={`mb-1 ${isActive ? 'transform scale-110 transition-transform' : ''}`} />
+                   <span className={`text-[10px] font-bold tracking-wide ${isActive ? 'opacity-100' : 'opacity-80'}`}>
+                     {tab.label}
+                   </span>
+                   {isActive && <div className="absolute top-0 w-12 h-1 bg-green-600 rounded-b-full"></div>}
+                 </button>
+               )
+             })}
+           </div>
+        </footer>
+
+        {/* Login Modal Overlay */}
+        {showLogin && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden relative">
+              <button onClick={closeLogin} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700">
+                <X size={20} />
+              </button>
+              
+              <div className="p-6">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-700 mb-4 mx-auto">
+                  <Shield size={24} />
+                </div>
+                <h2 className="text-xl font-bold text-center text-gray-800 mb-1">Admin Login</h2>
+                <p className="text-center text-sm text-gray-500 mb-6">Authenticate to manage the tournament</p>
+
+                {loginError && (
+                  <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 border border-red-200 text-center">
+                    {loginError}
+                  </div>
+                )}
+
+                {loginStep === 'phone' ? (
+                  <form onSubmit={handleSendOtp} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
+                      <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 focus-within:ring-2 focus-within:ring-green-500">
+                        <Phone size={16} className="text-gray-400 mr-2" />
+                        <input 
+                          type="tel" 
+                          maxLength="10"
+                          value={phone} 
+                          onChange={(e) => setPhone(e.target.value)} 
+                          className="w-full bg-transparent outline-none" 
+                          placeholder="Enter 10-digit number" 
+                        />
+                      </div>
+                    </div>
+                    <button type="submit" className="w-full bg-green-600 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-green-700 transition">
+                      Send OTP
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyOtp} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Enter OTP</label>
+                      <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 focus-within:ring-2 focus-within:ring-green-500">
+                        <KeyRound size={16} className="text-gray-400 mr-2" />
+                        <input 
+                          type="text" 
+                          maxLength="4"
+                          value={otp} 
+                          onChange={(e) => setOtp(e.target.value)} 
+                          className="w-full bg-transparent outline-none tracking-widest text-center text-lg" 
+                          placeholder="1234" 
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2 text-center">Demo Mock OTP: 1234</p>
+                    </div>
+                    <button type="submit" className="w-full bg-green-600 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-green-700 transition">
+                      Verify & Login
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+```
